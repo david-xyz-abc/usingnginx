@@ -448,30 +448,6 @@ function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['mp4', 'webm', 'mov', 'avi', 'mkv']);
 }
-
-/************************************************
- * 13. Generate Shareable Link for Files (New Feature)
- ************************************************/
-function generateShareLink($fileName, $username, $currentRel) {
-    $token = bin2hex(random_bytes(16)); // Generate a random 32-character token
-    $expiry = time() + (24 * 3600); // 24 hours from now
-    $shareData = [
-        'username' => $username,
-        'file' => $currentRel . '/' . $fileName,
-        'token' => $token,
-        'expiry' => $expiry
-    ];
-    $sharesFile = '/var/www/html/selfhostedgdrive/shares.json';
-    if (!file_exists($sharesFile)) {
-        file_put_contents($sharesFile, json_encode([]));
-        chown($sharesFile, 'www-data');
-        chmod($sharesFile, 0666);
-    }
-    $shares = json_decode(file_get_contents($sharesFile), true) ?: [];
-    $shares[$token] = $shareData;
-    file_put_contents($sharesFile, json_encode($shares, JSON_PRETTY_PRINT));
-    return "http://34.47.127.51/selfhostedgdrive/share.php?token=$token";
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -541,7 +517,7 @@ function generateShareLink($fileName, $username, $currentRel) {
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
-          <input type="text" class="search-bar" id="searchInput" placeholder="Search files/folders..." onkeyup="filterItems()">
+          <input type="text" class="search-bar" id="searchInput" placeholder="Search files..." onkeyup="filterItems()">
           <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
             <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
             <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
@@ -575,7 +551,6 @@ function generateShareLink($fileName, $username, $currentRel) {
               $isImageFile = isImage($fileName);
               $isVideoFile = isVideo($fileName);
               log_debug("File URL for $fileName: $fileURL");
-              $shareLink = generateShareLink($fileName, $username, $currentRel);
             ?>
             <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')"
                  data-name="<?php echo htmlspecialchars($fileName); ?>">
@@ -592,9 +567,6 @@ function generateShareLink($fileName, $username, $currentRel) {
               <div class="file-actions">
                 <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
                   <i class="fas fa-download"></i>
-                </button>
-                <button type="button" class="btn" title="Share File" onclick="copyShareLink('<?php echo htmlspecialchars($shareLink); ?>', '<?php echo htmlspecialchars($fileName); ?>')">
-                  <i class="fas fa-share-alt"></i>
                 </button>
                 <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
                   <i class="fas fa-edit"></i>
@@ -618,8 +590,8 @@ function generateShareLink($fileName, $username, $currentRel) {
       </div>
       <span id="previewClose" onclick="closePreviewModal()"><i class="fas fa-times"></i></span>
       <div id="videoPlayerContainer" style="display: none;">
-        <video id="videoPlayer" preload="auto"></video>
-        <div id="videoPlayerControls">
+        <video id="videoPlayer" preload="auto" controls playsinline></video>
+        <div id="videoPlayerControls" style="display: none;">
           <button id="playPauseBtn" class="player-btn"><i class="fas fa-play"></i></button>
           <span id="currentTime">0:00</span>
           <input type="range" id="seekBar" value="0" min="0" step="0.1" class="seek-slider">
@@ -850,14 +822,6 @@ function generateShareLink($fileName, $username, $currentRel) {
     a.remove();
   }
 
-  function copyShareLink(shareLink, fileName) {
-    navigator.clipboard.writeText(shareLink).then(() => {
-      showAlert(`Share link for "${fileName}" copied to clipboard! Link expires in 24 hours.`);
-    }).catch(err => {
-      showAlert(`Failed to copy share link for "${fileName}". Please try again.`);
-    });
-  }
-
   // Collect all previewable files for navigation
   <?php
   $previewableFiles = [];
@@ -909,7 +873,7 @@ function generateShareLink($fileName, $username, $currentRel) {
           img.src = URL.createObjectURL(blob);
           imageContainer.appendChild(img);
           imageContainer.style.display = 'flex';
-          previewClose.style.display = 'none'; // Hide close button for images
+          previewClose.style.display = 'block'; // Show close button for images
           previewContent.classList.add('image-preview'); // Remove box styling
         })
         .catch(error => showAlert('Preview error: ' + error.message))
@@ -918,8 +882,11 @@ function generateShareLink($fileName, $username, $currentRel) {
         });
     } else if (file.type === 'video') {
       videoPlayer.src = fileURL;
+      videoPlayer.controls = true; // Use native controls for mobile
       videoContainer.style.display = 'block';
       previewClose.style.display = 'block'; // Show close button for videos
+      // No need for custom controls on mobile; native controls handle better
+      document.getElementById('videoPlayerControls').style.display = 'none';
       setupVideoPlayer(fileURL, fileName);
     } else if (file.type === 'other') {
       const icon = document.createElement('i');
@@ -935,9 +902,9 @@ function generateShareLink($fileName, $username, $currentRel) {
     previewModal.style.display = 'flex';
     updateNavigationButtons();
 
-    // Add click-outside-to-close functionality for images
+    // Add click-outside-to-close functionality for all preview types
     previewModal.onclick = function(e) {
-      if (e.target === previewModal && file.type === 'image') {
+      if (e.target === previewModal) {
         closePreviewModal();
       }
     };
@@ -963,59 +930,61 @@ function generateShareLink($fileName, $username, $currentRel) {
     const savedTime = localStorage.getItem(videoKey);
     if (savedTime) video.currentTime = parseFloat(savedTime);
 
-    video.onloadedmetadata = () => {
-      seekBar.max = video.duration;
-      duration.textContent = formatTime(video.duration);
-    };
+    // Only set up custom controls for desktop; mobile uses native controls
+    if (window.innerWidth > 768) { // Desktop check
+      video.onloadedmetadata = () => {
+        seekBar.max = video.duration;
+        duration.textContent = formatTime(video.duration);
+      };
 
-    video.ontimeupdate = () => {
-      seekBar.value = video.currentTime;
-      currentTime.textContent = formatTime(video.currentTime);
-      localStorage.setItem(videoKey, video.currentTime);
-    };
+      video.ontimeupdate = () => {
+        seekBar.value = video.currentTime;
+        currentTime.textContent = formatTime(video.currentTime);
+        localStorage.setItem(videoKey, video.currentTime);
+      };
 
-    playPauseBtn.onclick = () => {
-      if (video.paused) {
-        video.play();
-        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-      } else {
-        video.pause();
-        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-      }
-    };
+      playPauseBtn.onclick = () => {
+        if (video.paused) {
+          video.play();
+          playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        } else {
+          video.pause();
+          playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+        }
+      };
 
-    seekBar.oninput = () => {
-      video.currentTime = seekBar.value;
-    };
+      seekBar.oninput = () => {
+        video.currentTime = seekBar.value;
+      };
 
-    muteBtn.onclick = () => {
-      video.muted = !video.muted;
-      muteBtn.innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
-      volumeBar.value = video.muted ? 0 : video.volume;
-    };
+      muteBtn.onclick = () => {
+        video.muted = !video.muted;
+        muteBtn.innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
+        volumeBar.value = video.muted ? 0 : video.volume;
+      };
 
-    volumeBar.oninput = () => {
-      video.volume = volumeBar.value;
-      video.muted = (volumeBar.value == 0);
-      muteBtn.innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
-    };
+      volumeBar.oninput = () => {
+        video.volume = volumeBar.value;
+        video.muted = (volumeBar.value == 0);
+        muteBtn.innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
+      };
 
-    fullscreenBtn.onclick = () => {
-      if (!document.fullscreenElement) {
-        previewModal.classList.add('fullscreen');
-        previewModal.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-        previewModal.classList.remove('fullscreen');
-      }
-    };
+      fullscreenBtn.onclick = () => {
+        if (!document.fullscreenElement) {
+          previewModal.classList.add('fullscreen');
+          previewModal.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+          previewModal.classList.remove('fullscreen');
+        }
+      };
 
-    video.onclick = () => playPauseBtn.click();
-
-    video.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      playPauseBtn.click();
-    });
+      video.onclick = () => playPauseBtn.click();
+      video.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        playPauseBtn.click();
+      });
+    }
   }
 
   function formatTime(seconds) {
@@ -1060,13 +1029,7 @@ function generateShareLink($fileName, $username, $currentRel) {
 
   function filterItems() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const folderItems = document.querySelectorAll('#folderList .folder-item');
     const fileItems = document.querySelectorAll('#fileList .file-row');
-
-    folderItems.forEach(item => {
-      const name = item.getAttribute('data-name').toLowerCase();
-      item.style.display = name.includes(searchTerm) ? '' : 'none';
-    });
 
     fileItems.forEach(item => {
       const name = item.getAttribute('data-name').toLowerCase();
