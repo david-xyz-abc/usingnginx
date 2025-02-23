@@ -552,10 +552,10 @@ html, body {
   right: 20px;
   cursor: pointer;
   font-size: 30px;
-  color: var(--text-color); /* Use theme color for visibility in both modes */
+  color: #000; /* Black X for visibility */
   z-index: 9999;
-  background: rgba(255, 255, 255, 0.2); /* Light background for contrast in dark mode */
-  border: 2px solid var(--text-color); /* Border for visibility */
+  background: #ccc; /* Light gray background */
+  border: none; /* Remove border */
   border-radius: 50%;
   padding: 5px;
   width: 40px;
@@ -567,18 +567,18 @@ html, body {
 }
 
 body.light-mode #previewClose {
-  background: rgba(0, 0, 0, 0.2); /* Dark background for contrast in light mode */
-  border: 2px solid var(--text-color); /* Maintain border in light mode */
+  background: #ccc; /* Maintain light gray in light mode */
+  color: #000; /* Black X in light mode */
 }
 
 #previewClose:hover {
-  background: rgba(255, 255, 255, 0.4);
-  color: var(--accent-red); /* Highlight on hover */
+  background: #999; /* Darker gray on hover */
+  color: #000; /* Keep black X on hover */
 }
 
 body.light-mode #previewClose:hover {
-  background: rgba(0, 0, 0, 0.4);
-  color: var(--accent-red);
+  background: #999; /* Darker gray on hover in light mode */
+  color: #000; /* Keep black X on hover */
 }
 
 @media (max-width: 768px) {
