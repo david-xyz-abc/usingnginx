@@ -590,8 +590,8 @@ function isVideo($fileName) {
       </div>
       <span id="previewClose" onclick="closePreviewModal()"><i class="fas fa-times"></i></span>
       <div id="videoPlayerContainer" style="display: none;">
-        <video id="videoPlayer" preload="auto" controls playsinline></video>
-        <div id="videoPlayerControls" style="display: none;">
+        <video id="videoPlayer" preload="auto"></video>
+        <div id="videoPlayerControls">
           <button id="playPauseBtn" class="player-btn"><i class="fas fa-play"></i></button>
           <span id="currentTime">0:00</span>
           <input type="range" id="seekBar" value="0" min="0" step="0.1" class="seek-slider">
@@ -882,11 +882,8 @@ function isVideo($fileName) {
         });
     } else if (file.type === 'video') {
       videoPlayer.src = fileURL;
-      videoPlayer.controls = true; // Use native controls for mobile
       videoContainer.style.display = 'block';
       previewClose.style.display = 'block'; // Show close button for videos
-      // No need for custom controls on mobile; native controls handle better
-      document.getElementById('videoPlayerControls').style.display = 'none';
       setupVideoPlayer(fileURL, fileName);
     } else if (file.type === 'other') {
       const icon = document.createElement('i');
@@ -921,6 +918,7 @@ function isVideo($fileName) {
     const volumeBar = document.getElementById('volumeBar');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const previewModal = document.getElementById('previewModal');
+    const videoControls = document.getElementById('videoPlayerControls');
 
     video.src = fileURL;
     video.preload = 'auto';
@@ -930,61 +928,99 @@ function isVideo($fileName) {
     const savedTime = localStorage.getItem(videoKey);
     if (savedTime) video.currentTime = parseFloat(savedTime);
 
-    // Only set up custom controls for desktop; mobile uses native controls
-    if (window.innerWidth > 768) { // Desktop check
-      video.onloadedmetadata = () => {
-        seekBar.max = video.duration;
-        duration.textContent = formatTime(video.duration);
-      };
+    video.onloadedmetadata = () => {
+      seekBar.max = video.duration;
+      duration.textContent = formatTime(video.duration);
+    };
 
-      video.ontimeupdate = () => {
-        seekBar.value = video.currentTime;
-        currentTime.textContent = formatTime(video.currentTime);
-        localStorage.setItem(videoKey, video.currentTime);
-      };
+    video.ontimeupdate = () => {
+      seekBar.value = video.currentTime;
+      currentTime.textContent = formatTime(video.currentTime);
+      localStorage.setItem(videoKey, video.currentTime);
+    };
 
-      playPauseBtn.onclick = () => {
-        if (video.paused) {
-          video.play();
-          playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-        } else {
-          video.pause();
-          playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-        }
-      };
+    playPauseBtn.onclick = () => {
+      if (video.paused) {
+        video.play();
+        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+      } else {
+        video.pause();
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+      }
+    };
 
-      seekBar.oninput = () => {
-        video.currentTime = seekBar.value;
-      };
+    seekBar.oninput = () => {
+      video.currentTime = seekBar.value;
+    };
 
-      muteBtn.onclick = () => {
-        video.muted = !video.muted;
-        muteBtn.innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
-        volumeBar.value = video.muted ? 0 : video.volume;
-      };
+    muteBtn.onclick = () => {
+      video.muted = !video.muted;
+      muteBtn.innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
+      volumeBar.value = video.muted ? 0 : video.volume;
+    };
 
-      volumeBar.oninput = () => {
-        video.volume = volumeBar.value;
-        video.muted = (volumeBar.value == 0);
-        muteBtn.innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
-      };
+    volumeBar.oninput = () => {
+      video.volume = volumeBar.value;
+      video.muted = (volumeBar.value == 0);
+      muteBtn.innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
+    };
 
-      fullscreenBtn.onclick = () => {
-        if (!document.fullscreenElement) {
-          previewModal.classList.add('fullscreen');
-          previewModal.requestFullscreen();
-        } else {
-          document.exitFullscreen();
-          previewModal.classList.remove('fullscreen');
-        }
-      };
+    fullscreenBtn.onclick = () => {
+      if (!document.fullscreenElement) {
+        previewModal.classList.add('fullscreen');
+        previewModal.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+        previewModal.classList.remove('fullscreen');
+      }
+    };
 
-      video.onclick = () => playPauseBtn.click();
-      video.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        playPauseBtn.click();
-      });
+    video.onclick = () => playPauseBtn.click();
+
+    // Ensure controls are visible and responsive on all devices
+    videoControls.style.display = 'flex';
+    if (window.innerWidth <= 768) { // Mobile adjustments
+      videoControls.style.padding = '5px';
+      videoControls.style.gap = '5px';
+      playPauseBtn.style.width = '30px';
+      playPauseBtn.style.height = '30px';
+      playPauseBtn.style.fontSize = '14px';
+      muteBtn.style.width = '30px';
+      muteBtn.style.height = '30px';
+      muteBtn.style.fontSize = '14px';
+      fullscreenBtn.style.width = '30px';
+      fullscreenBtn.style.height = '30px';
+      fullscreenBtn.style.fontSize = '14px';
+      volumeBar.style.width = '50px';
+      currentTime.style.fontSize = '10px';
+      currentTime.style.minWidth = '30px';
+      duration.style.fontSize = '10px';
+      duration.style.minWidth = '30px';
+      seekBar.style.height = '4px'; // Thinner slider for mobile
+    } else { // Desktop adjustments
+      videoControls.style.padding = '10px';
+      videoControls.style.gap = '10px';
+      playPauseBtn.style.width = '36px';
+      playPauseBtn.style.height = '36px';
+      playPauseBtn.style.fontSize = '16px';
+      muteBtn.style.width = '36px';
+      muteBtn.style.height = '36px';
+      muteBtn.style.fontSize = '16px';
+      fullscreenBtn.style.width = '36px';
+      fullscreenBtn.style.height = '36px';
+      fullscreenBtn.style.fontSize = '16px';
+      volumeBar.style.width = '80px';
+      currentTime.style.fontSize = '12px';
+      currentTime.style.minWidth = '40px';
+      duration.style.fontSize = '12px';
+      duration.style.minWidth = '40px';
+      seekBar.style.height = '5px';
     }
+
+    video.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      playPauseBtn.click();
+    }, { passive: false });
   }
 
   function formatTime(seconds) {
