@@ -448,6 +448,30 @@ function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['mp4', 'webm', 'mov', 'avi', 'mkv']);
 }
+
+/************************************************
+ * 13. Generate Shareable Link for Files (New Feature)
+ ************************************************/
+function generateShareLink($fileName, $username, $currentRel) {
+    $token = bin2hex(random_bytes(16)); // Generate a random 32-character token
+    $expiry = time() + (24 * 3600); // 24 hours from now
+    $shareData = [
+        'username' => $username,
+        'file' => $currentRel . '/' . $fileName,
+        'token' => $token,
+        'expiry' => $expiry
+    ];
+    $sharesFile = '/var/www/html/selfhostedgdrive/shares.json';
+    if (!file_exists($sharesFile)) {
+        file_put_contents($sharesFile, json_encode([]));
+        chown($sharesFile, 'www-data');
+        chmod($sharesFile, 0666);
+    }
+    $shares = json_decode(file_get_contents($sharesFile), true) ?: [];
+    $shares[$token] = $shareData;
+    file_put_contents($sharesFile, json_encode($shares, JSON_PRETTY_PRINT));
+    return "http://34.47.127.51/selfhostedgdrive/share.php?token=$token";
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -459,843 +483,7 @@ function isVideo($fileName) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
-  <style>
-:root {
-  --background: #121212;
-  --text-color: #fff;
-  --sidebar-bg: linear-gradient(135deg, #1e1e1e, #2a2a2a);
-  --content-bg: #1e1e1e;
-  --border-color: #333;
-  --button-bg: linear-gradient(135deg, #555, #777);
-  --button-hover: linear-gradient(135deg, #777, #555);
-  --accent-red: #d32f2f;
-  --dropzone-bg: rgba(211, 47, 47, 0.1);
-  --dropzone-border: #d32f2f;
-}
-
-body.light-mode {
-  --background: #f5f5f5;
-  --text-color: #333;
-  --sidebar-bg: linear-gradient(135deg, #e0e0e0, #fafafa);
-  --content-bg: #fff;
-  --border-color: #ccc;
-  --button-bg: linear-gradient(135deg, #888, #aaa);
-  --button-hover: linear-gradient(135deg, #aaa, #888);
-  --accent-red: #f44336;
-  --dropzone-bg: rgba(244, 67, 54, 0.1);
-  --dropzone-border: #f44336;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  background: var(--background);
-  color: var(--text-color);
-  font-family: 'Poppins', sans-serif;
-  overflow: hidden;
-  transition: background 0.3s, color 0.3s;
-}
-
-.app-container {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.sidebar {
-  width: 270px;
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  z-index: 9998;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  transform: translateX(-100%);
-  transition: transform 0.3s ease;
-}
-
-@media (min-width: 1024px) {
-  .sidebar { transform: none; }
-}
-
-.sidebar.open { transform: translateX(0); }
-
-@media (max-width: 1023px) {
-  .sidebar { position: fixed; top: 0; left: 0; height: 100%; }
-}
-
-.sidebar-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  z-index: 9997;
-}
-
-.sidebar-overlay.show { display: block; }
-
-@media (min-width: 1024px) { .sidebar-overlay { display: none !important; } }
-
-.folders-container {
-  padding: 20px;
-  overflow-y: auto;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 100%;
-}
-
-.top-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
-  justify-content: flex-start;
-}
-
-.top-row h2 {
-  font-size: 18px;
-  font-weight: 500;
-  margin: 0;
-  color: var(--text-color);
-}
-
-.storage-indicator {
-  margin-top: auto; /* Anchor to bottom */
-  padding: 10px;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 12px;
-  color: var(--text-color);
-}
-
-.storage-indicator p {
-  margin: 0 0 5px 0;
-  text-align: center;
-}
-
-.storage-bar {
-  width: 100%;
-  height: 10px;
-  background: var(--border-color);
-  border-radius: 5px;
-  overflow: hidden;
-}
-
-.storage-progress {
-  height: 100%;
-  background: var(--accent-red);
-  border-radius: 5px;
-  transition: width 0.3s ease;
-}
-
-.btn {
-  background: var(--button-bg);
-  color: var(--text-color);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  text-decoration: none;
-}
-
-.btn:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
-}
-
-.btn:active { transform: scale(0.95); }
-
-.btn i { color: var(--text-color); margin: 0; }
-
-.btn-back {
-  background: var(--button-bg);
-  color: var(--text-color);
-  border: none;
-  border-radius: 4px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.3s, transform 0.2s;
-  text-decoration: none;
-}
-
-.btn-back i { color: var(--text-color); margin: 0; }
-
-.btn-back:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
-}
-
-.btn-back:active { transform: scale(0.95); }
-
-.logout-btn {
-  background: linear-gradient(135deg, var(--accent-red), #b71c1c) !important;
-}
-
-.logout-btn:hover {
-  background: linear-gradient(135deg, #b71c1c, var(--accent-red)) !important;
-}
-
-.folder-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.folder-item {
-  padding: 8px 10px;
-  margin-bottom: 5px;
-  border-radius: 4px;
-  background: var(--content-bg);
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.folder-item:hover { background: var(--border-color); }
-
-.folder-item.selected {
-  background: var(--accent-red);
-  color: #fff;
-  transform: translateX(5px);
-}
-
-.folder-item i { margin-right: 6px; }
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-}
-
-.header-area {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--background);
-  z-index: 10;
-}
-
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.header-area h1 {
-  font-size: 18px;
-  font-weight: 500;
-  margin: 0;
-  color: var(--text-color);
-}
-
-.hamburger {
-  background: none;
-  border: none;
-  color: var(--text-color);
-  font-size: 24px;
-  cursor: pointer;
-}
-
-@media (min-width: 1024px) { .hamburger { display: none; } }
-
-.content-inner {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-  position: relative;
-}
-
-.file-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.file-list.grid-view {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 15px;
-}
-
-.file-row {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  transition: box-shadow 0.3s ease, transform 0.2s;
-  position: relative;
-  cursor: pointer;
-}
-
-.file-list.grid-view .file-row {
-  flex-direction: column;
-  align-items: center;
-  padding: 10px;
-  height: 180px;
-  text-align: center;
-  overflow: hidden;
-  position: relative;
-  cursor: pointer;
-}
-
-.file-row:hover {
-  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-  transform: translateX(5px);
-}
-
-.file-list.grid-view .file-row:hover {
-  transform: scale(1.05);
-  translate: 0;
-}
-
-.file-icon {
-  font-size: 20px;
-  margin-right: 10px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-}
-
-.file-list.grid-view .file-icon {
-  font-size: 20px;
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  margin: 0;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 5px;
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-}
-
-.file-preview {
-  display: none;
-}
-
-.file-list.grid-view .file-preview {
-  display: block;
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 4px;
-  margin-bottom: 10px;
-}
-
-.file-list.grid-view .file-icon:not(.no-preview) {
-  display: none;
-}
-
-.file-name {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-right: 20px;
-  cursor: pointer;
-}
-
-.file-list.grid-view .file-name {
-  margin: 0;
-  font-size: 14px;
-  white-space: normal;
-  word-wrap: break-word;
-  max-height: 40px;
-  overflow: hidden;
-}
-
-.file-name:hover { border-bottom: 1px solid var(--accent-red); }
-
-.file-list.grid-view .file-name:hover { border-bottom: none; }
-
-.file-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.file-list.grid-view .file-actions {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.file-list.grid-view .file-row:hover .file-actions {
-  opacity: 1;
-}
-
-.file-actions button {
-  background: var(--button-bg);
-  border-radius: 4px;
-  color: var(--text-color);
-  border: none;
-  font-size: 14px;
-  transition: background 0.3s, transform 0.2s;
-  cursor: pointer;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.file-actions button:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
-}
-
-.file-actions button:active { transform: scale(0.95); }
-
-.file-actions button i { color: var(--text-color); margin: 0; }
-
-#fileInput { display: none; }
-
-#uploadProgressContainer {
-  display: none;
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 300px;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  padding: 10px;
-  border-radius: 4px;
-  z-index: 9999;
-}
-
-#uploadProgressBar {
-  height: 20px;
-  width: 0%;
-  background: var(--accent-red);
-  border-radius: 4px;
-  transition: width 0.1s ease;
-}
-
-#uploadProgressPercent {
-  text-align: center;
-  margin-top: 5px;
-  font-weight: 500;
-}
-
-.cancel-upload-btn {
-  margin-top: 5px;
-  padding: 6px 10px;
-  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
-  color: var(--text-color);
-}
-
-.cancel-upload-btn:hover {
-  background: linear-gradient(135deg, #b71c1c, var(--accent-red));
-  transform: scale(1.05);
-}
-
-.cancel-upload-btn:active { transform: scale(0.95); }
-
-#previewModal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.8);
-  justify-content: center;
-  align-items: center;
-  z-index: 9998;
-  overflow: hidden; /* Prevent scrolling */
-}
-
-#previewContent {
-  position: relative;
-  width: 90vw;
-  max-width: 90vw;
-  height: auto;
-  max-height: 90vh;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-#previewContent.image-preview {
-  background: none;
-  border: none;
-  padding: 0;
-  max-width: 100vw;
-  max-height: 100vh;
-  width: auto;
-  height: auto;
-}
-
-#previewNav {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0 20px;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-#previewNav button {
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-#previewNav button:hover {
-  background: rgba(0, 0, 0, 0.7);
-}
-
-#previewNav button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-#previewClose {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  cursor: pointer;
-  font-size: 30px;
-  color: #fff;
-  z-index: 9999;
-}
-
-#iconPreviewContainer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  max-width: 90vw;
-  max-height: 90vh;
-}
-
-#iconPreviewContainer i {
-  font-size: 100px;
-  color: var(--text-color);
-}
-
-#videoPlayerContainer {
-  position: relative;
-  width: 100%;
-  max-width: 800px;
-  height: auto;
-  max-height: 80vh;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-#videoPlayer {
-  width: 100%;
-  height: auto;
-  max-height: calc(80vh - 60px);
-  display: block;
-  background: #000;
-  object-fit: contain;
-}
-
-#videoPlayerControls {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  box-sizing: border-box;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.player-btn {
-  background: var(--button-bg);
-  color: var(--text-color);
-  border: none;
-  border-radius: 4px;
-  width: 36px;
-  height: 36px;
-  cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
-}
-
-.player-btn:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
-}
-
-.player-btn:active { transform: scale(0.95); }
-
-.seek-slider {
-  flex: 1;
-  -webkit-appearance: none;
-  height: 5px;
-  background: var(--border-color);
-  border-radius: 5px;
-  outline: none;
-  margin: 0 10px;
-}
-
-.seek-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
-  background: var(--accent-red);
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.volume-slider {
-  -webkit-appearance: none;
-  height: 5px;
-  width: 80px;
-  background: var(--border-color);
-  border-radius: 5px;
-  outline: none;
-  margin: 0 5px;
-}
-
-.volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 10px;
-  height: 10px;
-  background: var(--accent-red);
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-#currentTime, #duration {
-  font-size: 12px;
-  color: var(--text-color);
-  min-width: 40px;
-  text-align: center;
-  margin: 0 5px;
-}
-
-#previewModal.fullscreen #videoPlayerContainer {
-  max-width: 100vw;
-  max-height: 100vh;
-  width: 100vw;
-  height: 100vh;
-  border: none;
-  border-radius: 0;
-}
-
-#previewModal.fullscreen #videoPlayer {
-  max-height: 100vh;
-  height: 100vh;
-  width: 100vw;
-  object-fit: contain;
-}
-
-@media (max-width: 768px) {
-  #videoPlayerContainer {
-    max-width: 100%;
-    max-height: 70vh;
-  }
-
-  #videoPlayer {
-    max-height: calc(70vh - 50px);
-  }
-
-  #videoPlayerControls {
-    padding: 5px;
-    gap: 5px;
-  }
-
-  .player-btn {
-    width: 30px;
-    height: 30px;
-    font-size: 14px;
-  }
-
-  .volume-slider {
-    width: 50px;
-  }
-
-  #currentTime, #duration {
-    font-size: 10px;
-    min-width: 30px;
-  }
-
-  #previewClose {
-    top: 10px;
-    right: 10px;
-    font-size: 25px;
-  }
-
-  #previewNav button {
-    width: 30px;
-    height: 30px;
-    font-size: 16px;
-  }
-
-  .file-list.grid-view {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  }
-
-  .file-list.grid-view .file-row {
-    height: 150px;
-  }
-
-  .file-list.grid-view .file-preview {
-    height: 100px;
-  }
-
-  .file-list.grid-view .file-icon {
-    font-size: 16px;
-  }
-
-  #iconPreviewContainer i {
-    font-size: 80px;
-  }
-}
-
-#imagePreviewContainer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  max-width: 100vw;
-  max-height: 100vh;
-  overflow: hidden; /* Ensure no overflow */
-}
-
-#imagePreviewContainer img {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain; /* Ensure the image fits within the container */
-  display: block;
-}
-
-#dialogModal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.8);
-  justify-content: center;
-  align-items: center;
-  z-index: 10000;
-}
-
-#dialogModal.show { display: flex; }
-
-.dialog-content {
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 20px;
-  max-width: 90%;
-  width: 400px;
-  text-align: center;
-}
-
-.dialog-message {
-  margin-bottom: 20px;
-  font-size: 16px;
-}
-
-.dialog-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-.dialog-button {
-  background: var(--button-bg);
-  color: var(--text-color);
-  border: none;
-  border-radius: 4px;
-  padding: 6px 10px;
-  cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
-}
-
-.dialog-button:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
-}
-
-.dialog-button:active { transform: scale(0.95); }
-
-.theme-toggle-btn i { color: var(--text-color); }
-
-#dropZone {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: var(--dropzone-bg);
-  border: 3px dashed var(--dropzone-border);
-  z-index: 5;
-  justify-content: center;
-  align-items: center;
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--accent-red);
-  text-align: center;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-#dropZone.active { display: flex; }
-  </style>
+  <link rel="stylesheet" href="/selfhostedgdrive/styles.css">
 </head>
 <body>
   <div class="app-container">
@@ -1321,13 +509,14 @@ html, body {
             <i class="fa fa-sign-out" aria-hidden="true"></i>
           </a>
         </div>
-        <ul class="folder-list">
+        <ul class="folder-list" id="folderList">
           <?php foreach ($folders as $folderName): ?>
             <?php $folderPath = ($currentRel === 'Home' ? '' : $currentRel . '/') . $folderName; 
                   log_debug("Folder path for $folderName: $folderPath"); ?>
             <li class="folder-item"
                 ondblclick="openFolder('<?php echo urlencode($folderPath); ?>')"
-                onclick="selectFolder(this, '<?php echo addslashes($folderName); ?>'); event.stopPropagation();">
+                onclick="selectFolder(this, '<?php echo addslashes($folderName); ?>'); event.stopPropagation();"
+                data-name="<?php echo htmlspecialchars($folderName); ?>">
               <i class="fas fa-folder"></i> <?php echo htmlspecialchars($folderName); ?>
             </li>
           <?php endforeach; ?>
@@ -1351,7 +540,8 @@ html, body {
           </button>
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="text" class="search-bar" id="searchInput" placeholder="Search files/folders..." onkeyup="filterItems()">
           <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
             <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
             <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
@@ -1385,8 +575,10 @@ html, body {
               $isImageFile = isImage($fileName);
               $isVideoFile = isVideo($fileName);
               log_debug("File URL for $fileName: $fileURL");
+              $shareLink = generateShareLink($fileName, $username, $currentRel);
             ?>
-            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
+            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')"
+                 data-name="<?php echo htmlspecialchars($fileName); ?>">
               <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile || $isVideoFile ? '' : ' no-preview'; ?>"></i>
               <?php if ($isImageFile): ?>
                 <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
@@ -1400,6 +592,9 @@ html, body {
               <div class="file-actions">
                 <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
                   <i class="fas fa-download"></i>
+                </button>
+                <button type="button" class="btn" title="Share File" onclick="copyShareLink('<?php echo htmlspecialchars($shareLink); ?>', '<?php echo htmlspecialchars($fileName); ?>')">
+                  <i class="fas fa-share-alt"></i>
                 </button>
                 <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
                   <i class="fas fa-edit"></i>
@@ -1655,6 +850,14 @@ html, body {
     a.remove();
   }
 
+  function copyShareLink(shareLink, fileName) {
+    navigator.clipboard.writeText(shareLink).then(() => {
+      showAlert(`Share link for "${fileName}" copied to clipboard! Link expires in 24 hours.`);
+    }).catch(err => {
+      showAlert(`Failed to copy share link for "${fileName}". Please try again.`);
+    });
+  }
+
   // Collect all previewable files for navigation
   <?php
   $previewableFiles = [];
@@ -1853,6 +1056,22 @@ html, body {
     const nextBtn = document.getElementById('nextBtn');
     prevBtn.disabled = previewFiles.length <= 1;
     nextBtn.disabled = previewFiles.length <= 1;
+  }
+
+  function filterItems() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const folderItems = document.querySelectorAll('#folderList .folder-item');
+    const fileItems = document.querySelectorAll('#fileList .file-row');
+
+    folderItems.forEach(item => {
+      const name = item.getAttribute('data-name').toLowerCase();
+      item.style.display = name.includes(searchTerm) ? '' : 'none';
+    });
+
+    fileItems.forEach(item => {
+      const name = item.getAttribute('data-name').toLowerCase();
+      item.style.display = name.includes(searchTerm) ? '' : 'none';
+    });
   }
 
   const uploadForm = document.getElementById('uploadForm');
