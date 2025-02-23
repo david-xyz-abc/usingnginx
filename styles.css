@@ -554,7 +554,8 @@ html, body {
   font-size: 30px;
   color: var(--text-color); /* Use theme color for visibility in both modes */
   z-index: 9999;
-  background: rgba(0, 0, 0, 0.5); /* Slight background for contrast */
+  background: rgba(255, 255, 255, 0.2); /* Light background for contrast in dark mode */
+  border: 2px solid var(--text-color); /* Border for visibility */
   border-radius: 50%;
   padding: 5px;
   width: 40px;
@@ -562,11 +563,22 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.3s;
+  transition: background 0.3s, color 0.3s;
+}
+
+body.light-mode #previewClose {
+  background: rgba(0, 0, 0, 0.2); /* Dark background for contrast in light mode */
+  border: 2px solid var(--text-color); /* Maintain border in light mode */
 }
 
 #previewClose:hover {
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(255, 255, 255, 0.4);
+  color: var(--accent-red); /* Highlight on hover */
+}
+
+body.light-mode #previewClose:hover {
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--accent-red);
 }
 
 @media (max-width: 768px) {
