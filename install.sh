@@ -26,7 +26,7 @@ fi
 BASE_URL="https://raw.githubusercontent.com/david-xyz-abc/usingnginx/main"
 
 # List of required PHP files (same as before)
-FILES=("index.php" "authenticate.php" "explorer.php" "logout.php" "register.php")
+FILES=("index.php" "authenticate.php" "explorer.php" "logout.php" "register.php" "styles.css")
 
 # Update package lists
 echo "Updating package lists..."
