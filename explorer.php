@@ -851,8 +851,9 @@ function isVideo($fileName) {
     iconContainer.style.display = 'none';
     iconContainer.innerHTML = ''; // Clear icon content
     videoPlayer.pause();
-    videoPlayer.src = ''; // Reset video source
+    videoPlayer.src = ''; // Reset video source to prevent errors
     previewContent.classList.remove('image-preview'); // Reset class
+    previewModal.classList.remove('fullscreen'); // Ensure not fullscreen by default
 
     // Populate previewable files
     previewFiles = <?php echo json_encode($previewableFiles); ?>;
@@ -1044,7 +1045,8 @@ function isVideo($fileName) {
   function closePreviewModal() {
     const video = document.getElementById('videoPlayer');
     video.pause();
-    video.src = '';
+    video.src = ''; // Properly reset video source to avoid errors
+    video.load(); // Ensure video is unloaded to prevent "Failed to load video" errors
     document.getElementById('previewModal').style.display = 'none';
     if (document.fullscreenElement) document.exitFullscreen();
     document.getElementById('previewModal').classList.remove('fullscreen');
@@ -1119,9 +1121,9 @@ function isVideo($fileName) {
     });
   });
 
-  // Hide actions when clicking outside
+  // Hide actions when clicking outside or on the file-row (but not on actions/buttons)
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.file-row')) {
+    if (!e.target.closest('.file-actions') && !e.target.closest('.more-file-btn')) {
       document.querySelectorAll('.file-actions').forEach(action => {
         action.style.display = 'none';
         action.classList.remove('show');
