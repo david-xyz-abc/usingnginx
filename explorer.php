@@ -516,7 +516,7 @@ function isVideo($fileName) {
           </button>
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="header-actions" style="display: flex; align-items: center; gap: 10px; position: relative;">
           <input type="text" class="search-bar" id="searchInput" placeholder="Search files..." onkeyup="filterItems()">
           <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
             <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
@@ -524,6 +524,14 @@ function isVideo($fileName) {
               <i class="fas fa-cloud-upload-alt"></i>
             </button>
           </form>
+          <button type="button" class="btn more-options-btn" id="moreOptionsBtn" title="More Options" style="width:36px; height:36px;">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+          <div class="file-actions-dropdown" id="fileActionsDropdown" style="display: none; position: absolute; right: 0; top: 100%; background: var(--content-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+            <button type="button" class="dropdown-btn" id="downloadBtn" title="Download"><i class="fas fa-download"></i> Download</button>
+            <button type="button" class="dropdown-btn" id="renameBtn" title="Rename"><i class="fas fa-edit"></i> Rename</button>
+            <button type="button" class="dropdown-btn" id="deleteBtn" title="Delete"><i class="fas fa-trash"></i> Delete</button>
+          </div>
           <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" style="width:36px; height:36px;">
             <i class="fas fa-th"></i>
           </button>
@@ -553,7 +561,7 @@ function isVideo($fileName) {
               log_debug("File URL for $fileName: $fileURL");
             ?>
             <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')"
-                 data-name="<?php echo htmlspecialchars($fileName); ?>">
+                 data-name="<?php echo htmlspecialchars($fileName); ?>" data-file-url="<?php echo htmlspecialchars($fileURL); ?>">
               <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile || $isVideoFile ? '' : ' no-preview'; ?>"></i>
               <?php if ($isImageFile): ?>
                 <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
@@ -564,17 +572,9 @@ function isVideo($fileName) {
                    title="<?php echo htmlspecialchars($fileName); ?>">
                 <?php echo htmlspecialchars($fileName); ?>
               </div>
-              <div class="file-actions">
-                <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
-                  <i class="fas fa-download"></i>
-                </button>
-                <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
-                  <i class="fas fa-edit"></i>
-                </button>
-                <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
+              <button type="button" class="btn more-file-btn" data-file="<?php echo addslashes($fileName); ?>" title="More Options">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
             </div>
           <?php endforeach; ?>
         </div>
@@ -619,6 +619,7 @@ function isVideo($fileName) {
   let previewFiles = []; // Array to store previewable files
   let currentPreviewIndex = -1;
   let isLoadingImage = false; // Flag to prevent overlapping image loads
+  let selectedFile = null; // Track the currently selected file for actions
 
   function toggleSidebar() {
     const sb = document.getElementById('sidebar');
@@ -967,9 +968,19 @@ function isVideo($fileName) {
 
     fullscreenBtn.onclick = () => {
       if (!document.fullscreenElement) {
+        videoControls.style.position = 'fixed'; // Keep controls visible in fullscreen
+        videoControls.style.bottom = '0';
+        videoControls.style.left = '0';
+        videoControls.style.width = '100vw';
+        videoControls.style.zIndex = '9999';
+        document.documentElement.requestFullscreen();
         previewModal.classList.add('fullscreen');
-        previewModal.requestFullscreen();
       } else {
+        videoControls.style.position = 'relative'; // Reset controls position
+        videoControls.style.bottom = '';
+        videoControls.style.left = '';
+        videoControls.style.width = '';
+        videoControls.style.zIndex = '';
         document.exitFullscreen();
         previewModal.classList.remove('fullscreen');
       }
@@ -1072,6 +1083,50 @@ function isVideo($fileName) {
       item.style.display = name.includes(searchTerm) ? '' : 'none';
     });
   }
+
+  // Handle more options for files
+  document.querySelectorAll('.more-file-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent triggering file row click
+      selectedFile = btn.getAttribute('data-file');
+      const fileURL = btn.closest('.file-row').getAttribute('data-file-url');
+      showFileActions(fileURL);
+    });
+  });
+
+  function showFileActions(fileURL) {
+    const dropdown = document.getElementById('fileActionsDropdown');
+    dropdown.style.display = 'block';
+    dropdown.classList.add('show'); // Trigger animation
+    document.getElementById('downloadBtn').onclick = () => downloadFile(fileURL);
+    document.getElementById('renameBtn').onclick = () => renameFilePrompt(selectedFile);
+    document.getElementById('deleteBtn').onclick = () => confirmFileDelete(selectedFile);
+  }
+
+  document.getElementById('moreOptionsBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    const dropdown = document.getElementById('fileActionsDropdown');
+    if (dropdown.style.display === 'block') {
+      dropdown.style.display = 'none';
+      dropdown.classList.remove('show');
+    } else if (selectedFile) {
+      const fileRows = document.querySelectorAll('.file-row');
+      fileRows.forEach(row => {
+        const fileURL = row.getAttribute('data-file-url');
+        showFileActions(fileURL);
+      });
+    }
+  });
+
+  // Hide dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('fileActionsDropdown');
+    const moreBtn = document.getElementById('moreOptionsBtn');
+    if (!dropdown.contains(e.target) && e.target !== moreBtn) {
+      dropdown.style.display = 'none';
+      dropdown.classList.remove('show');
+    }
+  });
 
   const uploadForm = document.getElementById('uploadForm');
   const fileInput = document.getElementById('fileInput');
