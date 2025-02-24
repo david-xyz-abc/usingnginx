@@ -588,7 +588,7 @@ function isVideo($fileName) {
       </div>
       <span id="previewClose" onclick="closePreviewModal()"><i class="fas fa-times"></i></span>
       <div id="videoPlayerContainer" style="display: none;">
-        <video id="videoPlayer" preload="metadata" controls></video>
+        <video id="videoPlayer" preload="auto"></video>
         <div id="videoPlayerControls">
           <button id="playPauseBtn" class="player-btn"><i class="fas fa-play"></i></button>
           <span id="currentTime">0:00</span>
@@ -875,14 +875,17 @@ function isVideo($fileName) {
           previewClose.style.display = 'block'; // Show close button for images
           previewContent.classList.add('image-preview'); // Remove box styling
         })
-        .catch(error => showAlert('Preview error: ' + error.message))
+        .catch(error => {
+          console.error('Image load error:', error);
+          showAlert('Preview error: Unable to load image.');
+        })
         .finally(() => {
           isLoadingImage = false; // Reset flag after loading
         });
     } else if (file.type === 'video') {
       videoPlayer.src = fileURL;
-      videoPlayer.onerror = () => {
-        console.error('Video failed to load:', fileURL);
+      videoPlayer.onerror = (e) => {
+        console.error('Video load error:', fileURL, e);
         showAlert('Failed to load video.');
       };
       videoContainer.style.display = 'block';
@@ -923,7 +926,7 @@ function isVideo($fileName) {
     const videoControls = document.getElementById('videoPlayerControls');
 
     video.src = fileURL;
-    video.preload = 'metadata'; // Use metadata to load faster and prevent unnecessary buffering
+    video.preload = 'auto'; // Use auto to enable range-based streaming
     video.load();
 
     const videoKey = `video_position_${fileName}`;
@@ -943,7 +946,7 @@ function isVideo($fileName) {
 
     playPauseBtn.onclick = () => {
       if (video.paused) {
-        video.play();
+        video.play().catch(error => console.error('Play error:', error));
         playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
       } else {
         video.pause();
@@ -974,7 +977,7 @@ function isVideo($fileName) {
         videoControls.style.left = '0';
         videoControls.style.width = '100vw';
         videoControls.style.zIndex = '9999';
-        document.documentElement.requestFullscreen();
+        document.documentElement.requestFullscreen().catch(error => console.error('Fullscreen error:', error));
         previewModal.classList.add('fullscreen');
       } else {
         videoControls.style.position = 'relative'; // Reset controls position
@@ -982,7 +985,7 @@ function isVideo($fileName) {
         videoControls.style.left = '';
         videoControls.style.width = '';
         videoControls.style.zIndex = '';
-        document.exitFullscreen();
+        document.exitFullscreen().catch(error => console.error('Exit fullscreen error:', error));
         previewModal.classList.remove('fullscreen');
       }
     };
@@ -1045,9 +1048,14 @@ function isVideo($fileName) {
     const video = document.getElementById('videoPlayer');
     video.pause();
     video.src = ''; // Properly reset video source to avoid errors
-    video.load(); // Ensure video is unloaded to prevent "Failed to load video" errors
+    video.removeAttribute('src'); // Ensure source is fully cleared
+    video.load(); // Ensure video is unloaded to prevent errors
+    // Remove event listeners to prevent memory leaks
+    video.removeEventListener('loadedmetadata', video.onloadedmetadata);
+    video.removeEventListener('timeupdate', video.ontimeupdate);
+    video.removeEventListener('touchstart', video.touchstart);
     document.getElementById('previewModal').style.display = 'none';
-    if (document.fullscreenElement) document.exitFullscreen();
+    if (document.fullscreenElement) document.exitFullscreen().catch(error => console.error('Exit fullscreen error:', error));
     document.getElementById('previewModal').classList.remove('fullscreen');
     document.getElementById('previewModal').onclick = null; // Remove event listener
     document.getElementById('previewClose').style.display = 'block'; // Reset close button visibility
