@@ -588,7 +588,7 @@ function isVideo($fileName) {
       </div>
       <span id="previewClose" onclick="closePreviewModal()"><i class="fas fa-times"></i></span>
       <div id="videoPlayerContainer" style="display: none;">
-        <video id="videoPlayer" preload="auto"></video>
+        <video id="videoPlayer" preload="metadata" controls></video>
         <div id="videoPlayerControls">
           <button id="playPauseBtn" class="player-btn"><i class="fas fa-play"></i></button>
           <span id="currentTime">0:00</span>
@@ -887,7 +887,7 @@ function isVideo($fileName) {
       };
       videoContainer.style.display = 'block';
       previewClose.style.display = 'block'; // Show close button for videos
-      setupVideoPlayer(fileURL, fileName);
+      setupVideoPlayer(videoPlayer, fileURL, fileName); // Pass video element explicitly
     } else if (file.type === 'other') {
       const icon = document.createElement('i');
       icon.className = file.icon;
@@ -911,8 +911,7 @@ function isVideo($fileName) {
   }
   window.openPreviewModal = openPreviewModal;
 
-  function setupVideoPlayer(fileURL, fileName) {
-    const video = document.getElementById('videoPlayer');
+  function setupVideoPlayer(video, fileURL, fileName) {
     const playPauseBtn = document.getElementById('playPauseBtn');
     const seekBar = document.getElementById('seekBar');
     const currentTime = document.getElementById('currentTime');
@@ -924,7 +923,7 @@ function isVideo($fileName) {
     const videoControls = document.getElementById('videoPlayerControls');
 
     video.src = fileURL;
-    video.preload = 'auto';
+    video.preload = 'metadata'; // Use metadata to load faster and prevent unnecessary buffering
     video.load();
 
     const videoKey = `video_position_${fileName}`;
