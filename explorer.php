@@ -516,35 +516,22 @@ function isVideo($fileName) {
           </button>
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
-        <div class="header-actions" style="display: flex; align-items: center; gap: 10px; position: relative;">
-          <input type="text" class="search-bar" id="searchInput" placeholder="Search files..." onkeyup="filterItems()">
+        <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
+          <!-- Search Button (Magnifying Glass) -->
+          <button type="button" class="btn search-btn" title="Search" onclick="toggleSearchInput()">
+            <i class="fas fa-search"></i>
+          </button>
+          <!-- Upload Button -->
           <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
             <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
-            <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
+            <button type="button" class="btn" id="uploadBtn" title="Upload" onclick="document.getElementById('fileInput').click()">
               <i class="fas fa-cloud-upload-alt"></i>
             </button>
           </form>
-          <button type="button" class="btn more-options-btn" id="moreOptionsBtn" title="More Options" style="width:36px; height:36px;">
-            <i class="fas fa-ellipsis-v"></i>
-          </button>
-          <div class="file-actions-dropdown" id="fileActionsDropdown" style="display: none; position: absolute; right: 0; top: 100%; background: var(--content-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
-            <button type="button" class="dropdown-btn" id="downloadBtn" title="Download"><i class="fas fa-download"></i> Download</button>
-            <button type="button" class="dropdown-btn" id="renameBtn" title="Rename"><i class="fas fa-edit"></i> Rename</button>
-            <button type="button" class="dropdown-btn" id="deleteBtn" title="Delete"><i class="fas fa-trash"></i> Delete</button>
-          </div>
-          <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" style="width:36px; height:36px;">
+          <!-- Grid Button -->
+          <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" onclick="toggleGridView()">
             <i class="fas fa-th"></i>
           </button>
-          <button type="button" class="btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Theme" style="width:36px; height:36px;">
-            <i class="fas fa-moon"></i>
-          </button>
-          <div id="uploadProgressContainer">
-            <div style="background:var(--border-color); width:100%; height:20px; border-radius:4px; overflow:hidden;">
-              <div id="uploadProgressBar"></div>
-            </div>
-            <div id="uploadProgressPercent">0.0%</div>
-            <button class="cancel-upload-btn" id="cancelUploadBtn">Cancel</button>
-          </div>
         </div>
       </div>
       <div class="content-inner">
@@ -572,9 +559,20 @@ function isVideo($fileName) {
                    title="<?php echo htmlspecialchars($fileName); ?>">
                 <?php echo htmlspecialchars($fileName); ?>
               </div>
-              <button type="button" class="btn more-file-btn" data-file="<?php echo addslashes($fileName); ?>" title="More Options">
+              <button type="button" class="btn more-file-btn" title="More Options">
                 <i class="fas fa-ellipsis-v"></i>
               </button>
+              <div class="file-actions">
+                <button type="button" class="btn" title="Download" onclick="downloadFile('<?php echo htmlspecialchars($fileURL); ?>')">
+                  <i class="fas fa-download"></i>
+                </button>
+                <button type="button" class="btn" title="Rename" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button type="button" class="btn" title="Delete" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
             </div>
           <?php endforeach; ?>
         </div>
@@ -619,7 +617,6 @@ function isVideo($fileName) {
   let previewFiles = []; // Array to store previewable files
   let currentPreviewIndex = -1;
   let isLoadingImage = false; // Flag to prevent overlapping image loads
-  let selectedFile = null; // Track the currently selected file for actions
 
   function toggleSidebar() {
     const sb = document.getElementById('sidebar');
@@ -883,6 +880,10 @@ function isVideo($fileName) {
         });
     } else if (file.type === 'video') {
       videoPlayer.src = fileURL;
+      videoPlayer.onerror = () => {
+        console.error('Video failed to load:', fileURL);
+        showAlert('Failed to load video.');
+      };
       videoContainer.style.display = 'block';
       previewClose.style.display = 'block'; // Show close button for videos
       setupVideoPlayer(fileURL, fileName);
@@ -1074,57 +1075,58 @@ function isVideo($fileName) {
     nextBtn.disabled = previewFiles.length <= 1;
   }
 
-  function filterItems() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const fileItems = document.querySelectorAll('#fileList .file-row');
+  function toggleSearchInput() {
+    const searchTerm = prompt("Enter search term:");
+    if (searchTerm) {
+      filterItems(searchTerm);
+    }
+  }
 
+  function filterItems(searchTerm) {
+    const term = searchTerm.toLowerCase();
+    const fileItems = document.querySelectorAll('.file-row');
     fileItems.forEach(item => {
       const name = item.getAttribute('data-name').toLowerCase();
-      item.style.display = name.includes(searchTerm) ? '' : 'none';
+      item.style.display = name.includes(term) ? '' : 'none';
     });
   }
 
-  // Handle more options for files
+  function toggleGridView() {
+    const fileList = document.getElementById('fileList');
+    fileList.classList.toggle('grid-view');
+  }
+
+  // Handle more options for files (three-dot animation)
   document.querySelectorAll('.more-file-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevent triggering file row click
-      selectedFile = btn.getAttribute('data-file');
-      const fileURL = btn.closest('.file-row').getAttribute('data-file-url');
-      showFileActions(fileURL);
+      e.stopPropagation();
+      const fileRow = btn.closest('.file-row');
+      const actions = fileRow.querySelector('.file-actions');
+      const isShown = actions.classList.contains('show');
+      
+      // Hide all other actions
+      document.querySelectorAll('.file-actions').forEach(action => {
+        action.style.display = 'none';
+        action.classList.remove('show');
+      });
+      document.querySelectorAll('.more-file-btn').forEach(b => b.style.display = 'block');
+      
+      if (!isShown) {
+        actions.style.display = 'flex';
+        setTimeout(() => actions.classList.add('show'), 10); // Trigger animation
+        btn.style.display = 'none';
+      }
     });
   });
 
-  function showFileActions(fileURL) {
-    const dropdown = document.getElementById('fileActionsDropdown');
-    dropdown.style.display = 'block';
-    dropdown.classList.add('show'); // Trigger animation
-    document.getElementById('downloadBtn').onclick = () => downloadFile(fileURL);
-    document.getElementById('renameBtn').onclick = () => renameFilePrompt(selectedFile);
-    document.getElementById('deleteBtn').onclick = () => confirmFileDelete(selectedFile);
-  }
-
-  document.getElementById('moreOptionsBtn').addEventListener('click', (e) => {
-    e.preventDefault();
-    const dropdown = document.getElementById('fileActionsDropdown');
-    if (dropdown.style.display === 'block') {
-      dropdown.style.display = 'none';
-      dropdown.classList.remove('show');
-    } else if (selectedFile) {
-      const fileRows = document.querySelectorAll('.file-row');
-      fileRows.forEach(row => {
-        const fileURL = row.getAttribute('data-file-url');
-        showFileActions(fileURL);
-      });
-    }
-  });
-
-  // Hide dropdown when clicking outside
+  // Hide actions when clicking outside
   document.addEventListener('click', (e) => {
-    const dropdown = document.getElementById('fileActionsDropdown');
-    const moreBtn = document.getElementById('moreOptionsBtn');
-    if (!dropdown.contains(e.target) && e.target !== moreBtn) {
-      dropdown.style.display = 'none';
-      dropdown.classList.remove('show');
+    if (!e.target.closest('.file-row')) {
+      document.querySelectorAll('.file-actions').forEach(action => {
+        action.style.display = 'none';
+        action.classList.remove('show');
+      });
+      document.querySelectorAll('.more-file-btn').forEach(btn => btn.style.display = 'block');
     }
   });
 
@@ -1138,7 +1140,6 @@ function isVideo($fileName) {
   const dropZone = document.getElementById('dropZone');
   const mainContent = document.querySelector('.main-content');
   const fileList = document.getElementById('fileList');
-  const gridToggleBtn = document.getElementById('gridToggleBtn');
 
   uploadBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
@@ -1256,23 +1257,6 @@ function isVideo($fileName) {
     themeToggleBtn.querySelector('i').classList.toggle('fa-moon', !isLightMode);
     themeToggleBtn.querySelector('i').classList.toggle('fa-sun', isLightMode);
     localStorage.setItem('theme', isLightMode ? 'light' : 'dark');
-  });
-
-  // Grid View Toggle with Persistence
-  let isGridView = localStorage.getItem('gridView') === 'true';
-  function updateGridView() {
-    fileList.classList.toggle('grid-view', isGridView);
-    gridToggleBtn.querySelector('i').classList.toggle('fa-th', isGridView);
-    gridToggleBtn.querySelector('i').classList.toggle('fa-list', !isGridView);
-    gridToggleBtn.title = isGridView ? 'Switch to List View' : 'Switch to Grid View';
-  }
-  // Initialize grid view state
-  updateGridView();
-
-  gridToggleBtn.addEventListener('click', () => {
-    isGridView = !isGridView;
-    localStorage.setItem('gridView', isGridView);
-    updateGridView();
   });
 </script>
 </body>
