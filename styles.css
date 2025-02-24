@@ -581,7 +581,6 @@ html, body {
   display: block;
   background: #000;
   object-fit: contain;
-  outline: none; /* Remove default video outline */
 }
 
 #videoPlayerControls {
