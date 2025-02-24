@@ -4,8 +4,8 @@
   --sidebar-bg: linear-gradient(135deg, #1e1e1e, #2a2a2a);
   --content-bg: #1e1e1e;
   --border-color: #333;
-  --button-bg: linear-gradient(135deg, #555, #777);
-  --button-hover: linear-gradient(135deg, #777, #555);
+  --button-bg: #808080; /* Grey background for buttons */
+  --button-hover: #666; /* Darker grey for hover */
   --accent-red: #d32f2f;
   --dropzone-bg: rgba(211, 47, 47, 0.1);
   --dropzone-border: #d32f2f;
@@ -17,8 +17,8 @@ body.light-mode {
   --sidebar-bg: linear-gradient(135deg, #e0e0e0, #fafafa);
   --content-bg: #fff;
   --border-color: #ccc;
-  --button-bg: linear-gradient(135deg, #888, #aaa);
-  --button-hover: linear-gradient(135deg, #aaa, #888);
+  --button-bg: #808080; /* Grey in light mode */
+  --button-hover: #666; /* Darker grey for hover */
   --accent-red: #f44336;
   --dropzone-bg: rgba(244, 67, 54, 0.1);
   --dropzone-border: #f44336;
@@ -137,9 +137,7 @@ html, body {
   transition: width 0.3s ease;
 }
 
-.btn,
-.more-file-btn,
-.more-options-btn {
+.btn {
   background: var(--button-bg);
   color: var(--text-color);
   border: none;
@@ -152,23 +150,16 @@ html, body {
   align-items: center;
   justify-content: center;
   font-size: 16px;
-  text-decoration: none;
 }
 
-.btn:hover,
-.more-file-btn:hover,
-.more-options-btn:hover {
+.btn:hover {
   background: var(--button-hover);
   transform: scale(1.05);
 }
 
-.btn:active,
-.more-file-btn:active,
-.more-options-btn:active { transform: scale(0.95); }
+.btn:active { transform: scale(0.95); }
 
-.btn i,
-.more-file-btn i,
-.more-options-btn i { color: var(--text-color); margin: 0; }
+.btn i { color: var(--text-color); margin: 0; }
 
 .btn-back {
   background: var(--button-bg);
@@ -262,18 +253,11 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
-  position: relative;
 }
 
-.search-bar {
-  padding: 8px;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+.search-btn {
+  background: var(--button-bg);
   color: var(--text-color);
-  font-size: 14px;
-  width: 200px;
-  margin-right: 10px;
 }
 
 .hamburger {
@@ -308,6 +292,7 @@ html, body {
 .file-row {
   display: flex;
   align-items: center;
+  gap: 10px;
   padding: 8px;
   background: var(--content-bg);
   border: 1px solid var(--border-color);
@@ -384,7 +369,7 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-right: 20px;
+  margin-right: 10px;
   cursor: pointer;
 }
 
@@ -401,56 +386,25 @@ html, body {
 
 .file-list.grid-view .file-name:hover { border-bottom: none; }
 
-.file-actions {
-  display: none; /* Hidden by default, shown in dropdown */
-}
-
-.file-list.grid-view .file-actions {
-  display: none;
-}
-
-.file-list.grid-view .file-row:hover .file-actions {
-  display: none;
-}
-
 .more-file-btn {
   margin-left: auto; /* Push to the right in file row */
-  position: relative;
-}
-
-.file-actions-dropdown {
-  opacity: 0;
-  transform: translateY(-10px);
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-}
-
-.file-actions-dropdown.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.dropdown-btn {
-  display: block;
-  width: 100%;
-  padding: 8px 16px;
   background: var(--button-bg);
   color: var(--text-color);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-bottom: 5px;
-  text-align: left;
-  transition: background 0.3s, transform 0.2s;
 }
 
-.dropdown-btn:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
+.file-actions {
+  display: none;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  gap: 5px;
 }
 
-.dropdown-btn:active { transform: scale(0.95); }
-
-.dropdown-btn i { margin-right: 8px; }
+.file-actions.show {
+  display: flex;
+  opacity: 1;
+  transform: translateX(0);
+}
 
 #fileInput { display: none; }
 
@@ -832,3 +786,26 @@ html, body {
 }
 
 #dropZone.active { display: flex; }
+
+@media (max-width: 768px) {
+  .btn {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+  .file-row {
+    padding: 6px;
+  }
+  .file-list.grid-view {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+  .file-list.grid-view .file-row {
+    height: 150px;
+  }
+  .file-list.grid-view .file-preview {
+    height: 100px;
+  }
+  .file-icon {
+    font-size: 16px;
+  }
+}
