@@ -518,7 +518,7 @@ function isVideo($fileName) {
         </div>
         <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
           <!-- Search Button (Magnifying Glass) -->
-          <button type="button" class="btn search-btn" title="Search" onclick="toggleSearchInput()">
+          <button type="button" class="btn search-btn" title="Search" onclick="toggleSearchBar()">
             <i class="fas fa-search"></i>
           </button>
           <!-- Upload Button -->
@@ -531,6 +531,13 @@ function isVideo($fileName) {
           <!-- Grid Button -->
           <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" onclick="toggleGridView()">
             <i class="fas fa-th"></i>
+          </button>
+        </div>
+        <!-- Search Bar (Hidden by default) -->
+        <div class="search-bar-container" id="searchBarContainer" style="display: none;">
+          <input type="text" class="search-input" id="searchInput" placeholder="Search files..." oninput="filterItems(this.value)">
+          <button type="button" class="search-cancel-btn" title="Cancel Search" onclick="cancelSearch()">
+            <i class="fas fa-times"></i>
           </button>
         </div>
       </div>
@@ -1084,15 +1091,23 @@ function isVideo($fileName) {
     nextBtn.disabled = previewFiles.length <= 1;
   }
 
-  function toggleSearchInput() {
-    const searchTerm = prompt("Enter search term:");
-    if (searchTerm) {
-      filterItems(searchTerm);
+  function toggleSearchBar() {
+    const searchBarContainer = document.getElementById('searchBarContainer');
+    searchBarContainer.classList.toggle('active');
+    if (searchBarContainer.classList.contains('active')) {
+      document.getElementById('searchInput').focus();
     }
   }
 
+  function cancelSearch() {
+    const searchBarContainer = document.getElementById('searchBarContainer');
+    searchBarContainer.classList.remove('active');
+    document.getElementById('searchInput').value = '';
+    filterItems('');
+  }
+
   function filterItems(searchTerm) {
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
     const fileItems = document.querySelectorAll('.file-row');
     fileItems.forEach(item => {
       const name = item.getAttribute('data-name').toLowerCase();
