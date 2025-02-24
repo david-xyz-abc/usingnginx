@@ -459,7 +459,7 @@ function isVideo($fileName) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
-  <link rel="stylesheet" href="/selfhostedgdrive/styles.css">
+  <link rel="stylesheet" href="/selfhostedgdrive/styles.css"> 
 </head>
 <body>
   <div class="app-container">
@@ -475,10 +475,10 @@ function isVideo($fileName) {
           <button type="button" class="btn" title="Create New Folder" onclick="createFolder()">
             <i class="fas fa-folder-plus"></i>
           </button>
-          <button type="button" class="btn" id="btnDeleteFolder" title="Delete selected folder" style="display:none;">
+          <button type="button" class="btn" id="btnDeleteFolder" title="Delete selected folder">
             <i class="fas fa-trash"></i>
           </button>
-          <button type="button" class="btn" id="btnRenameFolder" title="Rename selected folder" style="display:none;">
+          <button type="button" class="btn" id="btnRenameFolder" title="Rename selected folder">
             <i class="fas fa-edit"></i>
           </button>
           <a href="/selfhostedgdrive/logout.php" class="btn logout-btn" title="Logout">
@@ -501,7 +501,7 @@ function isVideo($fileName) {
         <div class="storage-indicator">
           <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
           <div class="storage-bar">
-            <div class="storage-progress" style="width: <?php echo $storagePercentage; ?>%;"></div>
+            <div class="storage-progress"></div>
           </div>
         </div>
       </div>
@@ -516,14 +516,14 @@ function isVideo($fileName) {
           </button>
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
-        <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
+        <div class="header-actions">
           <!-- Search Button (Magnifying Glass) -->
           <button type="button" class="btn search-btn" title="Search" onclick="toggleSearchBar()">
             <i class="fas fa-search"></i>
           </button>
           <!-- Upload Button -->
           <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
-            <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
+            <input type="file" name="upload_files[]" multiple id="fileInput" />
             <button type="button" class="btn" id="uploadBtn" title="Upload" onclick="document.getElementById('fileInput').click()">
               <i class="fas fa-cloud-upload-alt"></i>
             </button>
@@ -534,7 +534,7 @@ function isVideo($fileName) {
           </button>
         </div>
         <!-- Search Bar (Hidden by default) -->
-        <div class="search-bar-container" id="searchBarContainer" style="display: none;">
+        <div class="search-bar-container" id="searchBarContainer">
           <input type="text" class="search-input" id="searchInput" placeholder="Search files..." oninput="filterItems(this.value)">
           <button type="button" class="search-cancel-btn" title="Cancel Search" onclick="cancelSearch()">
             <i class="fas fa-times"></i>
@@ -558,7 +558,7 @@ function isVideo($fileName) {
                  data-name="<?php echo htmlspecialchars($fileName); ?>" data-file-url="<?php echo htmlspecialchars($fileURL); ?>">
               <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile || $isVideoFile ? '' : ' no-preview'; ?>"></i>
               <?php if ($isImageFile): ?>
-                <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
+                <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview">
               <?php elseif ($isVideoFile): ?>
                 <!-- No preview in list view, just icon -->
               <?php endif; ?>
@@ -594,7 +594,7 @@ function isVideo($fileName) {
         <button id="nextBtn" onclick="navigatePreview(1)"><i class="fas fa-arrow-right"></i></button>
       </div>
       <span id="previewClose" onclick="closePreviewModal()"><i class="fas fa-times"></i></span>
-      <div id="videoPlayerContainer" style="display: none;">
+      <div id="videoPlayerContainer">
         <video id="videoPlayer" preload="auto"></video>
         <div id="videoPlayerControls">
           <button id="playPauseBtn" class="player-btn"><i class="fas fa-play"></i></button>
@@ -606,8 +606,8 @@ function isVideo($fileName) {
           <button id="fullscreenBtn" class="player-btn"><i class="fas fa-expand"></i></button>
         </div>
       </div>
-      <div id="imagePreviewContainer" style="display: none;"></div>
-      <div id="iconPreviewContainer" style="display: none;"></div>
+      <div id="imagePreviewContainer"></div>
+      <div id="iconPreviewContainer"></div>
     </div>
   </div>
 
@@ -653,26 +653,16 @@ function isVideo($fileName) {
     dialogButtons.innerHTML = '';
     const msgEl = document.createElement('div');
     msgEl.textContent = message;
-    msgEl.style.marginBottom = '10px';
     dialogMessage.appendChild(msgEl);
     const inputField = document.createElement('input');
     inputField.type = 'text';
     inputField.value = defaultValue || '';
-    inputField.style.width = '100%';
-    inputField.style.padding = '8px';
-    inputField.style.border = '1px solid #555';
-    inputField.style.borderRadius = '4px';
-    inputField.style.background = '#2a2a2a';
-    inputField.style.color = '#fff';
-    inputField.style.marginBottom = '15px';
     dialogMessage.appendChild(inputField);
     const okBtn = document.createElement('button');
-    okBtn.className = 'dialog-button';
     okBtn.textContent = 'OK';
     okBtn.onclick = () => { closeDialog(); if (callback) callback(inputField.value); };
     dialogButtons.appendChild(okBtn);
     const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'dialog-button';
     cancelBtn.textContent = 'Cancel';
     cancelBtn.onclick = () => { closeDialog(); if (callback) callback(null); };
     dialogButtons.appendChild(cancelBtn);
@@ -686,7 +676,6 @@ function isVideo($fileName) {
     dialogMessage.textContent = message;
     dialogButtons.innerHTML = '';
     const okBtn = document.createElement('button');
-    okBtn.className = 'dialog-button';
     okBtn.textContent = 'OK';
     okBtn.onclick = () => { closeDialog(); if (callback) callback(); };
     dialogButtons.appendChild(okBtn);
@@ -699,12 +688,10 @@ function isVideo($fileName) {
     dialogMessage.textContent = message;
     dialogButtons.innerHTML = '';
     const yesBtn = document.createElement('button');
-    yesBtn.className = 'dialog-button';
     yesBtn.textContent = 'Yes';
     yesBtn.onclick = () => { closeDialog(); if (onYes) onYes(); };
     dialogButtons.appendChild(yesBtn);
     const noBtn = document.createElement('button');
-    noBtn.className = 'dialog-button';
     noBtn.textContent = 'No';
     noBtn.onclick = () => { closeDialog(); if (onNo) onNo(); };
     dialogButtons.appendChild(noBtn);
@@ -845,7 +832,6 @@ function isVideo($fileName) {
     const videoContainer = document.getElementById('videoPlayerContainer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
-    const previewContent = document.getElementById('previewContent');
     const videoPlayer = document.getElementById('videoPlayer');
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
@@ -853,14 +839,11 @@ function isVideo($fileName) {
 
     // Clear all preview containers
     videoContainer.style.display = 'none';
-    imageContainer.style.display = 'none';
     imageContainer.innerHTML = ''; // Clear previous images
     iconContainer.style.display = 'none';
     iconContainer.innerHTML = ''; // Clear icon content
     videoPlayer.pause();
     videoPlayer.src = ''; // Reset video source to prevent errors
-    previewContent.classList.remove('image-preview'); // Reset class
-    previewModal.classList.remove('fullscreen'); // Ensure not fullscreen by default
 
     // Populate previewable files
     previewFiles = <?php echo json_encode($previewableFiles); ?>;
@@ -880,7 +863,6 @@ function isVideo($fileName) {
           imageContainer.appendChild(img);
           imageContainer.style.display = 'flex';
           previewClose.style.display = 'block'; // Show close button for images
-          previewContent.classList.add('image-preview'); // Remove box styling
         })
         .catch(error => {
           console.error('Image load error:', error);
@@ -999,7 +981,6 @@ function isVideo($fileName) {
 
     video.onclick = () => playPauseBtn.click();
 
-    // Ensure controls are visible and responsive on all devices
     videoControls.style.display = 'flex';
     if (window.innerWidth <= 768) { // Mobile adjustments
       videoControls.style.padding = '5px';
@@ -1066,7 +1047,6 @@ function isVideo($fileName) {
     document.getElementById('previewModal').classList.remove('fullscreen');
     document.getElementById('previewModal').onclick = null; // Remove event listener
     document.getElementById('previewClose').style.display = 'block'; // Reset close button visibility
-    document.getElementById('previewContent').classList.remove('image-preview'); // Reset class
     isLoadingImage = false; // Reset loading flag
     previewFiles = [];
     currentPreviewIndex = -1;
